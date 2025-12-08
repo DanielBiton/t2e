@@ -1,0 +1,28 @@
+# charts/t2e/values.yaml
+replicaCount: 1
+
+image:
+  repository: nginx
+  tag: "1.27.2"
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 80
+
+ingress:
+  enabled: false
+
+serviceAccount:
+  create: true
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 80
+
+resources: {}
+nodeSelector: {}
+tolerations: []
+affinity: {}
