@@ -54,10 +54,6 @@ resource "aws_eks_cluster" "this" {
   name    = local.name_prefix
   version = var.cluster_version
 
-  access_config {
-    authentication_mode = "API"
-  }
-
   role_arn = aws_iam_role.cluster_role.arn
 
   vpc_config {
@@ -69,80 +65,74 @@ resource "aws_eks_cluster" "this" {
   ]
 }
 
+# =====================================================
+# IAM Role עבור ה-Worker Nodes (EC2 של ה-Node Group)
+# =====================================================
+resource "aws_iam_role" "node_role" {
+  name = "${local.name_prefix}-node-role"
 
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Principal = {
+          Service = "ec2.amazonaws.com"
+        }
+        Action = "sts:AssumeRole"
+      }
+    ]
+  })
+}
 
+# פוליסיז סטנדרטיים לנודים של EKS
+resource "aws_iam_role_policy_attachment" "node_AmazonEKSWorkerNodePolicy" {
+  role       = aws_iam_role.node_role.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy"
+}
 
+resource "aws_iam_role_policy_attachment" "node_AmazonEKS_CNI_Policy" {
+  role       = aws_iam_role.node_role.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy"
+}
 
+resource "aws_iam_role_policy_attachment" "node_AmazonEC2ContainerRegistryReadOnly" {
+  role       = aws_iam_role.node_role.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
+}
 
-# resource "aws_eks_cluster" "t2e" {
-#   name = "t2e-prod"
+# ========================
+# Managed Node Group
+# ========================
+resource "aws_eks_node_group" "this" {
+  cluster_name    = aws_eks_cluster.this.name
+  node_group_name = "${local.name_prefix}-ng"
 
-#   access_config {
-#     authentication_mode = "API"
-#   }
+  node_role_arn = aws_iam_role.node_role.arn
+  subnet_ids    = aws_subnet.private[*].id
 
-#   role_arn = aws_iam_role.cluster-role.arn
-#   version  = "1.31"
-#   vpc_config {
-#     subnet_ids = [
-#       aws_subnet.private1.id,
-#       aws_subnet.private2.id,
-#     ]
-#   }
+  scaling_config {
+    desired_size = var.node_desired_size
+    min_size     = var.node_min_size
+    max_size     = var.node_max_size
+  }
 
-#   # Ensure that IAM Role permissions are created before and deleted
-#   # after EKS Cluster handling. Otherwise, EKS will not be able to
-#   # properly delete EKS managed EC2 infrastructure such as Security Groups.
-#   depends_on = [
-#     aws_iam_role_policy_attachment.cluster_AmazonEKSClusterPolicy,
-#   ]
-# }
+  instance_types = [var.node_instance_type]
+  capacity_type  = "ON_DEMAND"
 
-# resource "aws_iam_role" "cluster-role" {
-#   name = "t2e-prod-cluster-role"
-#   assume_role_policy = jsonencode({
-#     Version = "2012-10-17"
-#     Statement = [
-#       {
-#         Action = [
-#           "sts:AssumeRole",
-#           "sts:TagSession"
-#         ]
-#         Effect = "Allow"
-#         Principal = {
-#           Service = "eks.amazonaws.com"
-#         }
-#       },
-#     ]
-#   })
-# }
+  # AL2023 זו האופציה המודרנית לנודים מנוהלים
+  ami_type  = "AL2023_x86_64_STANDARD"
+  disk_size = 20
 
-# resource "aws_iam_role_policy_attachment" "cluster_AmazonEKSClusterPolicy" {
-#   policy_arn = "arn:aws:iam::aws:policy/AmazonEKSClusterPolicy"
-#   role       = aws_iam_role.cluster-role.name
-# }
+  tags = {
+    Name = "${local.name_prefix}-ng"
+    ENV  = var.env
+  }
 
-# resource "aws_vpc" "t2e-prod" {
-#   cidr_block = "10.0.0.0/16"
-# }
-
-# resource "aws_subnet" "private1" {
-#   vpc_id     = aws_vpc.t2e-prod.id
-#   cidr_block = "10.0.1.0/24"
-#  availability_zone = "us-east-1a"
-
-#   tags = {
-#     Name    = "t2e-prod",
-#     ENV     = "prod"
-#   }
-# }
-# resource "aws_subnet" "private2" {
-#   vpc_id            = aws_vpc.t2e-prod.id
-#   cidr_block        = "10.0.2.0/24"
-#   availability_zone = "us-east-1b"
-
-#   tags = {
-#     Name = "t2e-prod",
-#     ENV = "prod"
-# }
-# }
+  depends_on = [
+    aws_iam_role_policy_attachment.node_AmazonEKSWorkerNodePolicy,
+    aws_iam_role_policy_attachment.node_AmazonEKS_CNI_Policy,
+    aws_iam_role_policy_attachment.node_AmazonEC2ContainerRegistryReadOnly,
+  ]
+}
+ 
