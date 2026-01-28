@@ -44,8 +44,8 @@ env:
   IMAGE: 't2e-dev'
 
 jobs:
-  setup-build-publish-deploy:
-    name: 'Setup, Build, Publish, and Deploy'
+  build:
+    name: 'BUILD'
     runs-on: 'ubuntu-latest'
     environment: 'dev'
 
@@ -66,7 +66,7 @@ jobs:
           DOCKER_TAG="t2e:${SHORT_SHA}"
 
           docker build \
-            --tag "${DOCKER_TAG}"
+            --tag "${DOCKER_TAG}" .
 
           # DOOCKER IMAGE ON DISK --- TAGGED WITH NAME:TAG (t2e:abc123)
             .
