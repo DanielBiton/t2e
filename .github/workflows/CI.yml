@@ -69,7 +69,6 @@ jobs:
             --tag "${DOCKER_TAG}" .
 
           # DOOCKER IMAGE ON DISK --- TAGGED WITH NAME:TAG (t2e:abc123)
-            .
           docker push "${DOCKER_TAG}"
 
       # # Deploy the Docker image to the GKE cluster
