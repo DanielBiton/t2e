@@ -3,21 +3,6 @@ variable "env" {
   type        = string
 }
 
-variable "vpc_cidr" {
-  description = "VPC CIDR block"
-  type        = string
-}
-
-variable "private_subnet_cidrs" {
-  description = "CIDRs for private subnets (must match AZs length)"
-  type        = list(string)
-}
-
-variable "azs" {
-  description = "Availability Zones for subnets"
-  type        = list(string)
-}
-
 variable "cluster_version" {
   description = "EKS cluster version"
   type        = string
@@ -48,7 +33,21 @@ variable "node_max_size" {
   default     = 3
 }
 
+variable "vpc_id" {
+  description = "Existing VPC ID to deploy EKS into"
+  type        = string
+}
 
+variable "public_subnet_ids" {
+  description = "Existing public subnet IDs"
+  type        = list(string)
+  default     = []
+}
+
+variable "private_subnet_ids" {
+  description = "Existing private subnet IDs"
+  type        = list(string)
+}
 
 # variable "env" {
 #   description = "Environment name (e.g. dev, prod)"

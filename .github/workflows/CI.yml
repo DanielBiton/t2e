@@ -44,8 +44,8 @@ env:
   IMAGE: 't2e-dev'
 
 jobs:
-  setup-build-publish-deploy:
-    name: 'Setup, Build, Publish, and Deploy'
+  build:
+    name: 'BUILD'
     runs-on: 'ubuntu-latest'
     environment: 'dev'
 
@@ -66,17 +66,15 @@ jobs:
           DOCKER_TAG="t2e:${SHORT_SHA}"
 
           docker build \
-            --tag "${DOCKER_TAG}"
+            --tag "${DOCKER_TAG}" .
 
           # DOOCKER IMAGE ON DISK --- TAGGED WITH NAME:TAG (t2e:abc123)
-            .
-          docker push "${DOCKER_TAG}"
+          ## docker push "${DOCKER_TAG}"
 
-      # # Deploy the Docker image to the GKE cluster
-      # - name: 'Deploy to GKE'
-      #   run: |-
-      #     # replacing the image name in the k8s template
-      #     ./kustomize edit set image LOCATION-docker.pkg.dev/PROJECT_ID/REPOSITORY/IMAGE:TAG=$GAR_LOCATION-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/$IMAGE:$GITHUB_SHA
-      #     ./kustomize build . | kubectl apply -f -
-      #     kubectl rollout status deployment/$DEPLOYMENT_NAME
-      #     kubectl get services -o wide
+      #Disabled last command of deploy
+  deploydev:
+    name: 'DEPLOY'
+    runs-on: 'ubuntu-latest'
+    steps:
+      - name: deploy
+        run: echo "deploying.."

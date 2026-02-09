@@ -4,27 +4,6 @@ locals {
   name_prefix = "t2e-${var.env}"
 }
 
-resource "aws_vpc" "this" {
-  cidr_block = var.vpc_cidr
-
-  tags = {
-    Name = "${local.name_prefix}-vpc"
-    ENV  = var.env
-  }
-}
-
-resource "aws_subnet" "private" {
-  count             = length(var.private_subnet_cidrs)
-  vpc_id            = aws_vpc.this.id
-  cidr_block        = var.private_subnet_cidrs[count.index]
-  availability_zone = var.azs[count.index]
-
-  tags = {
-    Name = "${local.name_prefix}-private-${count.index + 1}"
-    ENV  = var.env
-  }
-}
-
 resource "aws_iam_role" "cluster_role" {
   name = "${local.name_prefix}-cluster-role"
 
@@ -57,7 +36,7 @@ resource "aws_eks_cluster" "this" {
   role_arn = aws_iam_role.cluster_role.arn
 
   vpc_config {
-    subnet_ids = aws_subnet.private[*].id
+    subnet_ids = var.private_subnet_ids
   }
 
   depends_on = [
@@ -109,8 +88,7 @@ resource "aws_eks_node_group" "this" {
   node_group_name = "${local.name_prefix}-ng"
 
   node_role_arn = aws_iam_role.node_role.arn
-  subnet_ids    = aws_subnet.private[*].id
-
+  subnet_ids = var.private_subnet_ids
   scaling_config {
     desired_size = var.node_desired_size
     min_size     = var.node_min_size
@@ -136,3 +114,5 @@ resource "aws_eks_node_group" "this" {
   ]
 }
  
+
+
