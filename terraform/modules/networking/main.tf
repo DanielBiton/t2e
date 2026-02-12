@@ -1,18 +1,14 @@
-// modules/networking/main.tf
-
 locals {
   name_prefix = "t2e-${var.env}"
 }
 
 resource "aws_vpc" "this" {
   cidr_block = var.vpc_cidr
-
   tags = {
     Name = "${local.name_prefix}-vpc"
     ENV  = var.env
   }
 }
-
 resource "aws_internet_gateway" "this" {
   vpc_id = aws_vpc.this.id
 
@@ -35,7 +31,6 @@ resource "aws_route_table" "public" {
     ENV  = var.env
   }
 }
-
 resource "aws_subnet" "private" {
   count             = length(var.private_subnet_cidrs)
   vpc_id            = aws_vpc.this.id
@@ -67,6 +62,7 @@ resource "aws_route_table_association" "public" {
   route_table_id = aws_route_table.public.id
 }
 
+## NAT GW + Private route table
 resource "aws_eip" "nat" {
   domain = "vpc"
 

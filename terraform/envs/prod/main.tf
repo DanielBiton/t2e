@@ -16,12 +16,10 @@ provider "aws" {
 }
 
 module "eks_cluster" {
-  source = "../../modules/eks_cluster"
-
-  env                  = "prod"
-  vpc_cidr             = "10.0.0.0/16"
-  public_subnet_cidrs  = ["10.10.10.0/24", "10.10.11.0/24"]
-  private_subnet_cidrs = ["10.0.1.0/24", "10.0.2.0/24"]
-  azs                  = ["us-east-1a", "us-east-1b"]
-  cluster_version      = "1.31"
+  source             = "../../modules/eks_cluster"
+  env                = "prod"
+  cluster_version    = "1.31"
+  vpc_id             = module.networking.vpc_id
+  public_subnet_ids  = module.networking.public_subnet_ids
+  private_subnet_ids = module.networking.private_subnet_ids
 }
