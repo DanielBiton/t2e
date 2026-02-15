@@ -1,14 +1,14 @@
 replicaCount: 1
 
 image:
-  repository: nginx
-  tag: "latest"
-  pullPolicy: IfNotPresent
+  repository: 850213989260.dkr.ecr.us-east-1.amazonaws.com/t2e
+  tag: "dev"
+  pullPolicy: Always
 
 service:
   type: LoadBalancer
   port: 80
-  targetPort: 80
+  targetPort: 8000
 
 resources:
   requests:
