@@ -27,14 +27,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Debug - Repo tree (top)
-        run: |
-          echo "PWD: $(pwd)"
-          echo "GITHUB_WORKSPACE: ${GITHUB_WORKSPACE}"
-          ls -la
-          echo "---- code/t2e ----"
-          ls -la ./code/t2e || true
-
       - name: Compute tags
         id: meta
         shell: bash
@@ -53,42 +45,35 @@ jobs:
           echo "  tag_sha=dev-${SAFE_BRANCH}-${SHORT_SHA}"
           echo "  tag_latest=dev-${SAFE_BRANCH}-latest"
 
+      - name: Debug - ensure Dockerfile exists
+        run: |
+          test -f ./code/t2e/Dockerfile && echo "Dockerfile OK" || (echo "Dockerfile missing" && exit 1)
+
       - name: Set up Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Debug - Dockerfile presence
+      - name: Build linux/amd64 and load into Docker
         run: |
-          test -f ./code/t2e/Dockerfile && echo "Dockerfile OK: ./code/t2e/Dockerfile" || (echo "Dockerfile NOT FOUND" && exit 1)
-
-      - name: Build image to OCI layout dir (linux/amd64)
-        run: |
-          IMAGE="${{ steps.meta.outputs.image }}"
-          TAG_SHA="${{ steps.meta.outputs.tag_sha }}"
-          TAG_LATEST="${{ steps.meta.outputs.tag_latest }}"
-
-          rm -rf oci-image
-          mkdir -p oci-image
-
           docker buildx build \
             --platform linux/amd64 \
-            -t "${IMAGE}:${TAG_SHA}" \
-            -t "${IMAGE}:${TAG_LATEST}" \
-            --output type=oci,dest=oci-image,tar=false \
+            -t local-image:build \
+            --load \
             ./code/t2e
 
-      - name: Debug - OCI layout contents
+      - name: Debug - show image arch
         run: |
-          echo "---- oci-image ----"
-          ls -la oci-image
-          echo "Expecting index.json + blobs/"
-          test -f oci-image/index.json && echo "index.json OK" || (echo "index.json MISSING" && exit 1)
-          test -d oci-image/blobs && echo "blobs/ OK" || (echo "blobs/ MISSING" && exit 1)
+          docker image inspect local-image:build --format '{{.Id}} {{.Os}}/{{.Architecture}}'
 
-      - name: Upload OCI layout artifact
+      - name: Save image to artifact (tar)
+        run: |
+          docker save local-image:build -o image.tar
+          ls -lh image.tar
+
+      - name: Upload image artifact
         uses: actions/upload-artifact@v4
         with:
-          name: oci-image
-          path: oci-image
+          name: docker-image
+          path: image.tar
           retention-days: 1
 
   push:
@@ -97,23 +82,15 @@ jobs:
     needs: build
 
     steps:
-      - name: Download OCI layout artifact
+      - name: Download image artifact
         uses: actions/download-artifact@v4
         with:
-          name: oci-image
-          path: oci-image
+          name: docker-image
 
-      - name: Debug - downloaded OCI layout
+      - name: Load image
         run: |
-          echo "PWD: $(pwd)"
-          ls -la
-          echo "---- oci-image ----"
-          ls -la oci-image
-          test -f oci-image/index.json && echo "index.json OK" || (echo "index.json MISSING" && exit 1)
-          test -d oci-image/blobs && echo "blobs/ OK" || (echo "blobs/ MISSING" && exit 1)
-
-      - name: Set up Buildx
-        uses: docker/setup-buildx-action@v3
+          docker load -i image.tar
+          docker images | head
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -122,30 +99,25 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
+      - name: Debug - who am I (AWS)
+        run: |
+          aws sts get-caller-identity
+
       - name: Login to Amazon ECR
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Push tags to ECR (no rebuild)
+      - name: Tag and push to ECR
         run: |
           IMAGE="${{ needs.build.outputs.image }}"
           TAG_SHA="${{ needs.build.outputs.tag_sha }}"
           TAG_LATEST="${{ needs.build.outputs.tag_latest }}"
 
-          echo "Pushing:"
-          echo "  ${IMAGE}:${TAG_SHA}"
-          echo "  ${IMAGE}:${TAG_LATEST}"
+          docker tag local-image:build "${IMAGE}:${TAG_SHA}"
+          docker tag local-image:build "${IMAGE}:${TAG_LATEST}"
 
-          docker buildx imagetools create \
-            --tag "${IMAGE}:${TAG_SHA}" \
-            --tag "${IMAGE}:${TAG_LATEST}" \
-            oci-layout://oci-image
+          docker push "${IMAGE}:${TAG_SHA}"
+          docker push "${IMAGE}:${TAG_LATEST}"
 
-      - name: Debug - confirm remote manifest exists
+      - name: Debug - confirm images exist in ECR
         run: |
-          IMAGE="${{ needs.build.outputs.image }}"
-          TAG_SHA="${{ needs.build.outputs.tag_sha }}"
-          TAG_LATEST="${{ needs.build.outputs.tag_latest }}"
-
-          echo "Inspecting pushed manifests:"
-          docker buildx imagetools inspect "${IMAGE}:${TAG_SHA}"
-          docker buildx imagetools inspect "${IMAGE}:${TAG_LATEST}"
+          aws ecr describe-images --region us-east-1 --repository-name t2e --max-results 20
