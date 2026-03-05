@@ -55,7 +55,7 @@ jobs:
             -t "${IMAGE}:${TAG_SHA}" \
             -t "${IMAGE}:${TAG_LATEST}" \
             --output type=oci,dest=oci-image/image.oci \
-            .
+            ./code/t2e
 
       - name: Upload OCI artifact
         uses: actions/upload-artifact@v4
