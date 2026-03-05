@@ -40,19 +40,28 @@ jobs:
           echo "tag_sha=dev-${SAFE_BRANCH}-${SHORT_SHA}" >> $GITHUB_OUTPUT
           echo "tag_latest=dev-${SAFE_BRANCH}-latest" >> $GITHUB_OUTPUT
 
-      - name: Build image (local)
-        run: |
-          docker build -t local-image:build .
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
 
-      - name: Save image to artifact (tar)
+      - name: Build image to OCI artifact (linux/amd64)
         run: |
-          docker save local-image:build -o image.tar
+          IMAGE="${{ steps.meta.outputs.image }}"
+          TAG_SHA="${{ steps.meta.outputs.tag_sha }}"
+          TAG_LATEST="${{ steps.meta.outputs.tag_latest }}"
 
-      - name: Upload image artifact
+          mkdir -p oci-image
+          docker buildx build \
+            --platform linux/amd64 \
+            -t "${IMAGE}:${TAG_SHA}" \
+            -t "${IMAGE}:${TAG_LATEST}" \
+            --output type=oci,dest=oci-image/image.oci \
+            .
+
+      - name: Upload OCI artifact
         uses: actions/upload-artifact@v4
         with:
-          name: docker-image
-          path: image.tar
+          name: oci-image
+          path: oci-image/image.oci
           retention-days: 1
 
   push:
@@ -61,14 +70,14 @@ jobs:
     needs: build
 
     steps:
-      - name: Download image artifact
+      - name: Download OCI artifact
         uses: actions/download-artifact@v4
         with:
-          name: docker-image
+          name: oci-image
+          path: oci-image
 
-      - name: Load image
-        run: |
-          docker load -i image.tar
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -80,14 +89,14 @@ jobs:
       - name: Login to Amazon ECR
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Tag and push to ECR
+      - name: Push tags to ECR (no rebuild)
         run: |
           IMAGE="${{ needs.build.outputs.image }}"
           TAG_SHA="${{ needs.build.outputs.tag_sha }}"
           TAG_LATEST="${{ needs.build.outputs.tag_latest }}"
 
-          docker tag local-image:build "${IMAGE}:${TAG_SHA}"
-          docker tag local-image:build "${IMAGE}:${TAG_LATEST}"
-
-          docker push "${IMAGE}:${TAG_SHA}"
-          docker push "${IMAGE}:${TAG_LATEST}"
+          # import ל-buildx
+          docker buildx imagetools create \
+            --tag "${IMAGE}:${TAG_SHA}" \
+            --tag "${IMAGE}:${TAG_LATEST}" \
+            oci-archive:oci-image/image.oci
