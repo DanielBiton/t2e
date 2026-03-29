@@ -2,7 +2,7 @@ replicaCount: 1
 
 image:
   repository: t2e
-  tag: "a582172011a247ef1c3780cf569fb88a3d71bb03"
+  tag: "d1712812565f53967aa4e81589d01f5ab49534a0"
   pullPolicy: Always
 
 service:
