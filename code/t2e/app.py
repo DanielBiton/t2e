@@ -26,7 +26,7 @@ EMOJI_RULES = [
     ("rocket", "🚀"),
 ]
 
-DEFAULT_EMOJI = "🤔"
+DEFAULT_EMOJI = "😡"
 
 
 @app.get("/convert")
