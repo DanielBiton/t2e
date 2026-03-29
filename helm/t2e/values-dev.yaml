@@ -1,8 +1,8 @@
 replicaCount: 1
 
 image:
-  repository: 850213989260.dkr.ecr.us-east-1.amazonaws.com/t2e
-  tag: "dev"
+  repository: t2e
+  tag: "a582172011a247ef1c3780cf569fb88a3d71bb03"
   pullPolicy: Always
 
 service:
